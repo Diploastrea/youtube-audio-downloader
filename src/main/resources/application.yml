@@ -1,1 +1,3 @@
-spring.application.name:yt-audio-downloader
+spring:
+  application:
+    name: yt-audio-downloader
