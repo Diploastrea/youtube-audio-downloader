@@ -1,3 +1,16 @@
 spring:
   application:
     name: yt-audio-downloader
+  threads:
+    virtual:
+      enabled: true
+    output:
+    ansi:
+      enabled: ALWAYS
+
+logging:
+  pattern:
+    dateformat: yyyy-MM-dd HH:mm:ss.SSS
+    level: "%5p [%t]"
+  level:
+    com.yt.dl.ytaudiodownloader: info

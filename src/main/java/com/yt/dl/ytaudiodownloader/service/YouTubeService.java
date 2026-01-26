@@ -2,10 +2,11 @@ package com.yt.dl.ytaudiodownloader.service;
 
 import com.google.api.services.youtube.model.PlaylistItemListResponse;
 import com.yt.dl.ytaudiodownloader.client.YouTubeClient;
+import com.yt.dl.ytaudiodownloader.dto.PlaylistItem;
 import java.io.IOException;
 import java.net.URI;
 import java.security.GeneralSecurityException;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
@@ -28,11 +29,11 @@ public class YouTubeService {
    * @throws GeneralSecurityException if an authorization error occurs
    * @throws IOException if an I/O error occurs
    */
-  public List<String> getVideoUrlsFromPlaylist(String playlistUrl)
+  public List<PlaylistItem> getVideoDetailsFromPlaylist(String playlistUrl)
       throws GeneralSecurityException, IOException {
     String playlistId = getPlaylistId(playlistUrl);
     PlaylistItemListResponse response = new PlaylistItemListResponse();
-    List<String> urls = new LinkedList<>();
+    List<PlaylistItem> playlistItems = new ArrayList<>();
     do {
       response =
           client
@@ -43,16 +44,18 @@ public class YouTubeService {
               .setMaxResults(50L)
               .setPageToken(response.getNextPageToken())
               .execute();
-      urls.addAll(
+      playlistItems.addAll(
           response.getItems().stream()
               .map(
                   x ->
-                      YOUTUBE_VIDEO_BASE_URL.concat(
-                          String.valueOf(x.getSnippet().getResourceId().get("videoId"))))
+                      new PlaylistItem(
+                          x.getSnippet().getTitle(),
+                          YOUTUBE_VIDEO_BASE_URL.concat(
+                              String.valueOf(x.getContentDetails().get("videoId")))))
               .toList());
     } while (Objects.nonNull(response.getNextPageToken()));
 
-    return urls;
+    return playlistItems;
   }
 
   /**
