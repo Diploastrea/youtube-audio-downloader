@@ -141,9 +141,10 @@ public class DownloadService {
    * @param videoTitle YouTube video title
    */
   private void downloadFile(String url, String videoTitle) {
+    String filename = sanitizeFilename(videoTitle);
     try {
       Path outputPath = Files.createDirectories(Path.of(OUTPUT_FOLDER));
-      Path targetFile = outputPath.resolve(videoTitle + MP3_EXTENSION);
+      Path targetFile = outputPath.resolve(filename + MP3_EXTENSION);
       try (InputStream in = URI.create(url).toURL().openStream()) {
         Files.copy(in, targetFile, StandardCopyOption.REPLACE_EXISTING);
       }
@@ -151,5 +152,18 @@ public class DownloadService {
     } catch (IOException e) {
       log.error("Failed to download '{}' to local filesystem!", videoTitle, e);
     }
+  }
+
+  /**
+   * Removes all illegal filename characters and returns sanitized input.
+   *
+   * @param videoTitle YouTube video title
+   * @return sanitized YouTube video title
+   */
+  private String sanitizeFilename(String videoTitle) {
+    return videoTitle
+        .replaceAll("[\\\\/:*?\"<>|]", "")
+        .replaceAll("\\s+", " ") // collapse whitespace
+        .trim();
   }
 }
