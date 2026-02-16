@@ -22,7 +22,7 @@ public class YouTubeService {
   private final YouTubeClient client;
 
   /**
-   * Returns URL for each video in provided YouTube playlist.
+   * Returns {@code List} of {@link PlaylistItem} containing title and URL for each video in the YouTube playlist.
    *
    * @param playlistUrl YouTube playlist URL
    * @return {@code List} of YouTube video URLs
