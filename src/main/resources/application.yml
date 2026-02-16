@@ -4,7 +4,7 @@ spring:
   threads:
     virtual:
       enabled: true
-    output:
+  output:
     ansi:
       enabled: ALWAYS
 
