@@ -4,7 +4,6 @@ A Spring Boot command-line application that downloads audio files from a YouTube
 video to an audio file using an external API and saves files to your local filesystem.
 
 ### Prerequisites
-- Apache Maven 3.9+
 - Java 25
 - Google OAuth 2.0 credentials
   - Refer to [Using OAuth 2.0 to Access Google APIs](https://developers.google.com/identity/protocols/oauth2)
