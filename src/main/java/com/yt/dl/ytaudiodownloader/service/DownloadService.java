@@ -3,7 +3,7 @@ package com.yt.dl.ytaudiodownloader.service;
 import com.yt.dl.ytaudiodownloader.dto.ApiKey;
 import com.yt.dl.ytaudiodownloader.dto.ConvertPayload;
 import com.yt.dl.ytaudiodownloader.dto.ConvertResponse;
-import com.yt.dl.ytaudiodownloader.dto.PlaylistItem;
+import com.yt.dl.ytaudiodownloader.dto.YouTubeVideo;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -13,10 +13,8 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.Set;
+import java.util.concurrent.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -38,25 +36,30 @@ public class DownloadService {
       RestClient.builder().defaultHeader("Origin", "https://frame.y2meta-uk.com").build();
 
   /**
-   * Downloads audio file from each video in the playlist.
+   * Downloads audio file from each video in the playlist. Returns set of downloaded videos.
    *
-   * @param playlistItems {@code List} of {@link PlaylistItem}
+   * @param youTubeVideos {@code Set} of {@link YouTubeVideo}
+   * @return {@code Set} of {@link YouTubeVideo}
    * @throws ExecutionException if any download task fails
    * @throws InterruptedException if the current thread is interrupted while waiting for all tasks
    *     to complete
    */
-  public void download(List<PlaylistItem> playlistItems)
+  public Set<YouTubeVideo> download(List<YouTubeVideo> youTubeVideos)
       throws ExecutionException, InterruptedException {
+    Set<YouTubeVideo> downloaded = ConcurrentHashMap.newKeySet();
     try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
       List<Future<?>> futures = new ArrayList<>();
-      for (PlaylistItem item : playlistItems) {
+      for (YouTubeVideo youTubeVideo : youTubeVideos) {
         futures.add(
             executor.submit(
                 () -> {
                   try {
-                    download(item);
+                    downloaded.add(download(youTubeVideo));
                   } catch (Exception e) {
-                    log.error("Unexpected error occurred while downloading '{}'!", item.title(), e);
+                    log.error(
+                        "Unexpected error occurred while downloading '{}'!",
+                        youTubeVideo.title(),
+                        e);
                   }
                 }));
       }
@@ -65,24 +68,27 @@ public class DownloadService {
         future.get();
       }
     }
+
+    return downloaded;
   }
 
   /**
-   * Downloads an audio file from a single URL.
+   * Converts and downloads an audio file from provided YouTube video. Returns downloaded video.
    *
    * <p>This method converts YouTube video to mp3 file through external API and saves the file to
    * local filesystem. It will retry up to {@code MAX_RETRIES} times if a {@link
    * RestClientException} occurs.
    *
-   * @param item {@link PlaylistItem} containing YouTube video title and URL
+   * @param youTubeVideo {@link YouTubeVideo} containing YouTube video metadata
+   * @return downloaded {@link YouTubeVideo}
    */
-  private void download(PlaylistItem item) {
-    log.debug("Starting download process for '{}'.", item.title());
+  private YouTubeVideo download(YouTubeVideo youTubeVideo) {
+    log.info("Downloading '{}'.", youTubeVideo.title());
     int attempt = 0;
     while (true) {
       attempt++;
       RestClient restClientWithAuth = getRestClientWithAuth();
-      ConvertPayload payload = buildPayload(item.url());
+      ConvertPayload payload = buildPayload(youTubeVideo.url());
 
       try {
         ConvertResponse convertResponse =
@@ -96,14 +102,17 @@ public class DownloadService {
 
         if (Objects.isNull(convertResponse)) {
           throw new RestClientException(
-              String.format("Unexpected error while converting '%s'!", item.title()));
+              String.format("Unexpected error while converting '%s'!", youTubeVideo.title()));
         }
-        downloadFile(convertResponse.url(), item.title());
-        return;
+        downloadFile(convertResponse.url(), youTubeVideo.title());
+        return youTubeVideo;
       } catch (RestClientException e) {
         if (attempt <= MAX_RETRIES) {
           log.debug(
-              "Retrying download for '{}' - [{}/{}] attempts.", item.title(), attempt, MAX_RETRIES);
+              "Retrying download for '{}' - [{}/{}] attempts.",
+              youTubeVideo.title(),
+              attempt,
+              MAX_RETRIES);
           continue;
         }
         throw e;

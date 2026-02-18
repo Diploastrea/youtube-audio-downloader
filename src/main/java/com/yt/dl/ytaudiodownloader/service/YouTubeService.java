@@ -2,60 +2,76 @@ package com.yt.dl.ytaudiodownloader.service;
 
 import com.google.api.services.youtube.model.PlaylistItemListResponse;
 import com.yt.dl.ytaudiodownloader.client.YouTubeClient;
-import com.yt.dl.ytaudiodownloader.dto.PlaylistItem;
+import com.yt.dl.ytaudiodownloader.dto.YouTubeVideo;
 import java.io.IOException;
 import java.net.URI;
-import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /** Service class handling interaction with YouTube Data API. */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class YouTubeService {
 
   private static final String INVALID_URL = "Invalid playlist URL!";
   private static final String YOUTUBE_VIDEO_BASE_URL = "https://www.youtube.com/watch?v=";
-  private final YouTubeClient client;
+
+  private final YouTubeClient youTubeClient;
 
   /**
-   * Returns {@code List} of {@link PlaylistItem} containing title and URL for each video in the YouTube playlist.
+   * Returns {@code List} of {@link YouTubeVideo} containing metadata for each video in the YouTube
+   * playlist.
    *
    * @param playlistUrl YouTube playlist URL
-   * @return {@code List} of YouTube video URLs
-   * @throws GeneralSecurityException if an authorization error occurs
+   * @return {@code List} of {@link YouTubeVideo}
    * @throws IOException if an I/O error occurs
    */
-  public List<PlaylistItem> getVideoDetailsFromPlaylist(String playlistUrl)
-      throws GeneralSecurityException, IOException {
+  public List<YouTubeVideo> getVideoDetailsFromPlaylist(String playlistUrl) throws IOException {
     String playlistId = getPlaylistId(playlistUrl);
     PlaylistItemListResponse response = new PlaylistItemListResponse();
-    List<PlaylistItem> playlistItems = new ArrayList<>();
+    List<YouTubeVideo> youTubeVideos = new ArrayList<>();
     do {
       response =
-          client
-              .getService()
+          youTubeClient
+              .getInstance()
               .playlistItems()
               .list("snippet,contentDetails")
               .setPlaylistId(playlistId)
               .setMaxResults(50L)
               .setPageToken(response.getNextPageToken())
               .execute();
-      playlistItems.addAll(
+      youTubeVideos.addAll(
           response.getItems().stream()
               .map(
                   x ->
-                      new PlaylistItem(
+                      new YouTubeVideo(
                           x.getSnippet().getTitle(),
                           YOUTUBE_VIDEO_BASE_URL.concat(
-                              String.valueOf(x.getContentDetails().get("videoId")))))
+                              String.valueOf(x.getContentDetails().get("videoId"))),
+                          x.getId()))
               .toList());
     } while (Objects.nonNull(response.getNextPageToken()));
 
-    return playlistItems;
+    return youTubeVideos;
+  }
+
+  /**
+   * Removes provided list of YouTube videos from the playlist.
+   *
+   * @param youTubeVideos {@code Set} of {@link YouTubeVideo}
+   * @throws IOException if an I/O error occurs
+   */
+  public void removeFromPlaylist(Set<YouTubeVideo> youTubeVideos) throws IOException {
+    log.info("Removing downloaded videos from the playlist.");
+    for (YouTubeVideo youTubeVideo : youTubeVideos) {
+      youTubeClient.getInstance().playlistItems().delete(youTubeVideo.id()).execute();
+    }
   }
 
   /**

@@ -5,5 +5,6 @@ package com.yt.dl.ytaudiodownloader.dto;
  *
  * @param title video title
  * @param url video URL
+ * @param id video ID
  */
-public record PlaylistItem(String title, String url) {}
+public record YouTubeVideo(String title, String url, String id) {}

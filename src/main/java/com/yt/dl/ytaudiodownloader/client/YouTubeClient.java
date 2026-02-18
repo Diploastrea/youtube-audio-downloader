@@ -29,9 +29,26 @@ public class YouTubeClient {
 
   private static final String CLIENT_SECRETS = "client_secret.json";
   private static final Collection<String> SCOPES =
-      List.of("https://www.googleapis.com/auth/youtube.readonly");
+      List.of("https://www.googleapis.com/auth/youtube");
   private static final String APPLICATION_NAME = "YouTube audio downloader";
   private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
+
+  public final YouTube youTube;
+
+  /**
+   * The constructor initializes an instance of authorized API client service.
+   *
+   * @throws GeneralSecurityException if an authorization error occurs
+   * @throws IOException if an I/O error occurs
+   */
+  public YouTubeClient() throws GeneralSecurityException, IOException {
+    final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+    Credential credential = authorize(httpTransport);
+    this.youTube =
+        new YouTube.Builder(httpTransport, JSON_FACTORY, credential)
+            .setApplicationName(APPLICATION_NAME)
+            .build();
+  }
 
   /**
    * Creates an authorized Credential object.
@@ -54,17 +71,11 @@ public class YouTubeClient {
   }
 
   /**
-   * Builds and returns an authorized API client service.
+   * Returns an instance of authorized API client service.
    *
-   * @return an authorized API client service
-   * @throws GeneralSecurityException if an authorization error occurs
-   * @throws IOException if an I/O error occurs
+   * @return authorized API client service
    */
-  public YouTube getService() throws GeneralSecurityException, IOException {
-    final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-    Credential credential = authorize(httpTransport);
-    return new YouTube.Builder(httpTransport, JSON_FACTORY, credential)
-        .setApplicationName(APPLICATION_NAME)
-        .build();
+  public YouTube getInstance() {
+    return this.youTube;
   }
 }
