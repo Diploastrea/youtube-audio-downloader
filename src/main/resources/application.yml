@@ -14,3 +14,9 @@ logging:
     level: "%5p [%t]"
   level:
     com.yt.dl.ytaudiodownloader: info
+
+app:
+  config:
+    playlist: https://www.youtube.com/playlist?list=PLXojoHzF3FgxstjM48QGzZsqJHTNpl8rb
+    output: download
+    remove-after-download: false

@@ -1,5 +1,6 @@
 package com.yt.dl.ytaudiodownloader.service;
 
+import com.yt.dl.ytaudiodownloader.config.ApplicationConfiguration;
 import com.yt.dl.ytaudiodownloader.dto.ApiKey;
 import com.yt.dl.ytaudiodownloader.dto.ConvertPayload;
 import com.yt.dl.ytaudiodownloader.dto.ConvertResponse;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.*;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -24,16 +26,18 @@ import org.springframework.web.client.RestClientException;
 /** Service class responsible for executing HTTP requests to external APIs and downloading files. */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class DownloadService {
 
   private static final String AUTH_TOKEN_ENDPOINT = "https://cnv.cx/v2/sanity/key";
   private static final String CONVERT_ENDPOINT = "https://cnv.cx/v2/converter";
   private static final String AUTH_HEADER = "key";
-  private static final String OUTPUT_FOLDER = "download";
   private static final String MP3_EXTENSION = ".mp3";
   private static final Integer MAX_RETRIES = 5;
   private static final RestClient restClient =
       RestClient.builder().defaultHeader("Origin", "https://frame.y2meta-uk.com").build();
+
+  private final ApplicationConfiguration config;
 
   /**
    * Downloads audio file from each video in the playlist. Returns set of downloaded videos.
@@ -55,7 +59,7 @@ public class DownloadService {
                 () -> {
                   try {
                     downloaded.add(download(youTubeVideo));
-                  } catch (Exception e) {
+                  } catch (RestClientException | IOException e) {
                     log.error(
                         "Unexpected error occurred while downloading '{}'!",
                         youTubeVideo.title(),
@@ -81,8 +85,9 @@ public class DownloadService {
    *
    * @param youTubeVideo {@link YouTubeVideo} containing YouTube video metadata
    * @return downloaded {@link YouTubeVideo}
+   * @throws IOException if an I/O error occurs
    */
-  private YouTubeVideo download(YouTubeVideo youTubeVideo) {
+  private YouTubeVideo download(YouTubeVideo youTubeVideo) throws IOException {
     log.info("Downloading '{}'.", youTubeVideo.title());
     int attempt = 0;
     while (true) {
@@ -106,7 +111,7 @@ public class DownloadService {
         }
         downloadFile(convertResponse.url(), youTubeVideo.title());
         return youTubeVideo;
-      } catch (RestClientException e) {
+      } catch (RestClientException | IOException e) {
         if (attempt <= MAX_RETRIES) {
           log.debug(
               "Retrying download for '{}' - [{}/{}] attempts.",
@@ -148,19 +153,16 @@ public class DownloadService {
    *
    * @param url YouTube video URL
    * @param videoTitle YouTube video title
+   * @throws IOException if an I/O error occurs
    */
-  private void downloadFile(String url, String videoTitle) {
+  private void downloadFile(String url, String videoTitle) throws IOException {
     String filename = sanitizeFilename(videoTitle);
-    try {
-      Path outputPath = Files.createDirectories(Path.of(OUTPUT_FOLDER));
-      Path targetFile = outputPath.resolve(filename + MP3_EXTENSION);
-      try (InputStream in = URI.create(url).toURL().openStream()) {
-        Files.copy(in, targetFile, StandardCopyOption.REPLACE_EXISTING);
-      }
-      log.info("Finished downloading '{}'.", videoTitle);
-    } catch (IOException e) {
-      log.error("Failed to download '{}' to local filesystem!", videoTitle, e);
+    Path outputPath = Files.createDirectories(Path.of(config.output()));
+    Path targetFile = outputPath.resolve(filename + MP3_EXTENSION);
+    try (InputStream in = URI.create(url).toURL().openStream()) {
+      Files.copy(in, targetFile, StandardCopyOption.REPLACE_EXISTING);
     }
+    log.info("Finished downloading '{}'.", videoTitle);
   }
 
   /**
